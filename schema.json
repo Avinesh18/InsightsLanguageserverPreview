@@ -1,0 +1,52 @@
+{
+	"cluster": {
+	  "name": "Cluster1",
+	  "databases": [
+		{
+		  "name": "Insights",
+		  "tables": [
+			{
+			  "name": "pull_requests",
+			  "columns": [
+				{
+				  "name": "Author",
+				  "type": "string",
+				  "identity": true
+				},
+				{
+				  "name": "CreatedDate",
+				  "type": "datetime",
+				  "identity": false
+				},
+				{
+				  "name": "TimeToOpenInSeconds",
+				  "type": "datetime",
+				  "identity": false
+				}
+			  ]
+			},
+			{
+			  "name": "Table2",
+			  "columns": [
+				{
+				  "name": "Name",
+				  "type": "string",
+				  "identity": true
+				},
+				{
+				  "name": "Age",
+				  "type": "int",
+				  "identity": false
+				},
+				{
+				  "name": "Address",
+				  "type": "string",
+				  "identity": false
+				}
+			  ]
+			}
+		  ]
+		}
+	  ]
+	}
+  }

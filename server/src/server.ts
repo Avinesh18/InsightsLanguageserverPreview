@@ -20,13 +20,37 @@ import {
     Hover,
     TextEdit,
     DocumentFormattingParams,
-    Position
+    Position,
+    TextDocumentChangeEvent
 } from 'vscode-languageserver';
 
 import { getClient as getKustoClient, TokenResponse, getFirstOrDefaultClient } from './kustoConnection';
 import { getSymbolsOnCluster, getSymbolsOnTable } from './kustoSymbols';
 import { formatCodeScript } from './kustoFormat';
 import { getVSCodeCompletionItemsAtPosition } from './kustoCompletion';
+import {getGlobalState} from './globalStateJson'
+import { start } from 'repl';
+import { endsWith } from 'lodash';
+import { profile } from 'console';
+import _ = require('lodash');
+
+interface InsightsBlock
+{
+	text: string;
+	start: number;
+	end: number;
+}
+
+
+interface PositionedCodeScript {
+
+    codeScript: Kusto.Language.Editor.CodeScript;
+    
+    //Line no. where insights block starts
+    start: number;
+
+    end: number;
+}
 
 // Create a connection for the server. The connection uses Node's IPC as a transport.
 // Also include all preview / proposed LSP features.
@@ -38,8 +62,9 @@ let documents: TextDocuments = new TextDocuments();
 
 // Create a collection of Kusto code services, one for each document
 type documentURI = string;
-let kustoGlobalState: Kusto.Language.GlobalState = Kusto.Language.GlobalState.Default;
-let kustoCodeScripts: Map<documentURI, Kusto.Language.Editor.CodeScript> = new Map();
+let temp: Kusto.Language.GlobalState = getGlobalState();
+let kustoGlobalState: Kusto.Language.GlobalState = temp!=null ? temp : Kusto.Language.GlobalState.Default;
+let kustoCodeScripts: Map<documentURI, PositionedCodeScript[]> = new Map();
 
 let hasConfigurationCapability: boolean = false;
 let hasWorkspaceFolderCapability: boolean = false;
@@ -87,24 +112,31 @@ connection.onInitialized(async () => {
     }
 });
 
-connection.onRequest('kuskus.loadSymbols', async ({ clusterUri, database }: { clusterUri: string, database: string }) => {
+connection.onRequest('insights.loadSymbols', async ({ clusterUri, database }: { clusterUri: string, database: string }) => {
 	let kustoClient = getKustoClient(clusterUri, (tokenResponse: TokenResponse) => {
-		connection.sendRequest('kuskus.loadSymbols.auth', { clusterUri, database, verificationUrl: tokenResponse.verificationUrl, verificationCode: tokenResponse.userCode });
+		connection.sendRequest('insights.loadSymbols.auth', { clusterUri, database, verificationUrl: tokenResponse.verificationUrl, verificationCode: tokenResponse.userCode });
 	});
 
 	try {
 		kustoGlobalState = await getSymbolsOnCluster(kustoClient, database);
-		connection.sendNotification('kuskus.loadSymbols.auth.complete.success', { clusterUri, database });
-		connection.sendNotification('kuskus.loadSymbols.success', { clusterUri, database });
-		kustoCodeScripts.forEach((value, key) => {
+		connection.sendNotification('insights.loadSymbols.auth.complete.success', { clusterUri, database });
+		connection.sendNotification('insights.loadSymbols.success', { clusterUri, database });
+		/*kustoCodeScripts.forEach((value, key) => {
 			kustoCodeScripts.set(key, value.WithGlobals(kustoGlobalState));
-		});
+		});*/
+        kustoCodeScripts.forEach((value, key) => {
+            for(var i = 0; i<value.length; ++i)
+            {
+                value[i] = {codeScript: value[i].codeScript.WithGlobals(kustoGlobalState), start: value[i].start, end:value[i].end} as PositionedCodeScript;
+            }
+            kustoCodeScripts.set(key, value);
+        })
 	} catch {
-		connection.sendNotification('kuskus.loadSymbols.auth.complete.error', { clusterUri, database });
+		connection.sendNotification('insights.loadSymbols.auth.complete.error', { clusterUri, database });
 	}
 });
 
-connection.onRequest('kuskus.loadTable', async ( tableName : string) => {
+connection.onRequest('insights.loadTable', async ( tableName : string) => {
 	
 	let clusterUri: string = "";
 	let kustoClient = null;
@@ -113,13 +145,20 @@ connection.onRequest('kuskus.loadTable', async ( tableName : string) => {
 	
 	try {
 		kustoGlobalState = await getSymbolsOnTable(kustoClient, database, tableName, kustoGlobalState);
-		connection.sendNotification('kuskus.loadSymbols.auth.complete.success', { clusterUri, database });
-		connection.sendNotification('kuskus.loadSymbols.success', { clusterUri, database });
-		kustoCodeScripts.forEach((value, key) => {
+		connection.sendNotification('insights.loadSymbols.auth.complete.success', { clusterUri, database });
+		connection.sendNotification('insights.loadSymbols.success', { clusterUri, database });
+		/*kustoCodeScripts.forEach((value, key) => {
 			kustoCodeScripts.set(key, value.WithGlobals(kustoGlobalState));
-		});
+		});*/
+        kustoCodeScripts.forEach((value, key) => {
+            for(var i = 0; i<value.length; ++i)
+            {
+                value[i] = {codeScript: value[i].codeScript.WithGlobals(kustoGlobalState), start: value[i].start, end:value[i].end} as PositionedCodeScript;
+            }
+            kustoCodeScripts.set(key, value);
+        })
 	} catch {
-		connection.sendNotification('kuskus.loadSymbols.auth.complete.error', { clusterUri, database });
+		connection.sendNotification('insights.loadSymbols.auth.complete.error', { clusterUri, database });
 	}
 })
 
@@ -150,7 +189,8 @@ connection.onDidChangeConfiguration(change => {
 	}
 
 	// Revalidate all open text documents
-	documents.all().forEach(validateTextDocument);
+	//documents.all().forEach(validateTextDocument);
+	documents.all().forEach(validateDocument);
 });
 
 function getDocumentSettings(resource: string): Thenable<Settings> {
@@ -161,7 +201,7 @@ function getDocumentSettings(resource: string): Thenable<Settings> {
 	if (!result) {
 		result = connection.workspace.getConfiguration({
 			scopeUri: resource,
-			section: 'kuskusLanguageServer'
+			section: 'insightsLanguageServer'
 		});
 		documentSettings.set(resource, result);
 	}
@@ -176,51 +216,121 @@ documents.onDidClose(e => {
 // The content of a text document has changed. This event is emitted
 // when the text document first opened or when its content has changed.
 documents.onDidChangeContent(change => {
-    if (!kustoCodeScripts.has(change.document.uri)) {
-        kustoCodeScripts.set(change.document.uri, _getCodeScriptForDocumentOrNewCodeScript(change.document));
-    } else {
-        const beforeChange = _getCodeScriptForDocumentOrNewCodeScript(change.document);
-        kustoCodeScripts.set(change.document.uri, beforeChange.WithText(change.document.getText()));
+	var positionedCodeScripts = getPositionedCodeScripts(getInsightsBlocks(change.document));
+    if(positionedCodeScripts == null)
+    {
+        connection.sendDiagnostics({ uri: change.document.uri, diagnostics: [] });
+        return;
     }
-    validateTextDocument(change.document);
-});
 
-function _getCodeScriptForDocumentOrNewCodeScript(document: TextDocument) : Kusto.Language.Editor.CodeScript {
-    return (
-        kustoCodeScripts.get(document.uri) || 
-        Kusto.Language.Editor.CodeScript.From$1(document.getText(), kustoGlobalState)
-    );
+	kustoCodeScripts.set(change.document.uri, positionedCodeScripts);
+	
+	validateDocument(change.document);
+})
+
+function getPositionedCodeScripts(blocks: InsightsBlock[]): PositionedCodeScript[]
+{
+    if(blocks == null)
+        return null;
+
+	var positionedCodeScripts: PositionedCodeScript[] = [];
+	blocks.forEach(block => {
+		var codeScript = Kusto.Language.Editor.CodeScript.From$1(block.text, kustoGlobalState);
+		positionedCodeScripts.push({codeScript: codeScript, start: block.start, end:block.end} as PositionedCodeScript);
+	});
+	return positionedCodeScripts;
 }
 
-async function validateTextDocument(textDocument: TextDocument): Promise<void> {
-	const settings = await getDocumentSettings(textDocument.uri);
+
+function getInsightsBlocks(document: TextDocument): InsightsBlock[]
+{
+	var text = document.getText();
+
+	var newLineOrInsightsBlock = /((?<!```insights)\n)|((?<=```insights)[^`]*)/g;
+	var reduced = text.match(newLineOrInsightsBlock);
+
+    if(reduced == null)
+        return null;
+
+	var blocks: InsightsBlock[] = [];
+	var line = 0;
+	reduced.forEach(block => {
+		if(block.length == 1)
+		{
+			line += 1;
+			return;
+		}
+
+		var lines = block.match(/\n/g).length;
+
+		var start = line + 1;
+		var end = line + 1 + lines - 2;
+		line += lines;
+
+		blocks.push({text: block.trim(), start: start, end: end} as InsightsBlock);
+	});
+
+	return blocks;
+}
+
+function getPositionedCodeScriptAtDocumentPosition(_textDocumentPosition: TextDocumentPositionParams): PositionedCodeScript
+{
+    var positionedCodeScripts = kustoCodeScripts.get(_textDocumentPosition.textDocument.uri);
+	var line = _textDocumentPosition.position.line;
+
+	for(var i = 0; i<positionedCodeScripts.length; ++i)
+	{
+		if(line >= positionedCodeScripts[i].start && line <= positionedCodeScripts[i].end)
+			return positionedCodeScripts[i];
+	}
+	return undefined;
+}
+
+function getCodeScriptAtDocumentPosition(_textDocumentPosition: TextDocumentPositionParams): Kusto.Language.Editor.CodeScript
+{
+	var positionedCodeScript = getPositionedCodeScriptAtDocumentPosition(_textDocumentPosition);
+
+    if(positionedCodeScript != undefined)
+        return positionedCodeScript.codeScript;
+    return undefined;
+}
+
+async function validateDocument(document: TextDocument): Promise<void>
+{
+	const settings = await getDocumentSettings(document.uri);
 	if (!settings.diagnosticsEnabled) {
-		connection.sendDiagnostics({ uri: textDocument.uri, diagnostics: [] });
+		connection.sendDiagnostics({ uri: document.uri, diagnostics: [] });
 		return;
 	}
 
-	const kustoCodeScript = _getCodeScriptForDocumentOrNewCodeScript(textDocument);
+	const codeScripts = kustoCodeScripts.get(document.uri);
 	let documentDiagnostics: Diagnostic[] = [];
 
-	const blocks = kustoCodeScript.Blocks;
-	for (let i=0; i < blocks.Count; i++) {
-		let block = blocks._items[i];
-		let diagnostics = block.Service.GetDiagnostics();
-		for (let j=0; j < diagnostics.Count; j++) {
-			let diagnostic = diagnostics.Items._items[j];
-			documentDiagnostics.push({
-				severity: DiagnosticSeverity.Error,
-				range: {
-				  start: textDocument.positionAt(diagnostic.Start),
-				  end: textDocument.positionAt(diagnostic.End)
-				},
-				message: diagnostic.Message
-			})
+	codeScripts.forEach(codeScript => {
+
+		const startOffset = document.offsetAt({line: codeScript.start, character: 0});
+
+		var kustoCodeScript = codeScript.codeScript;
+		const blocks = kustoCodeScript.Blocks;
+		for (let i=0; i < blocks.Count; i++) {
+			let block = blocks._items[i];
+			let diagnostics = block.Service.GetDiagnostics();
+			for (let j=0; j < diagnostics.Count; j++) {
+				let diagnostic = diagnostics.Items._items[j];
+				documentDiagnostics.push({
+					severity: DiagnosticSeverity.Error,
+					range: {
+					start: document.positionAt(diagnostic.Start + startOffset),
+					end: document.positionAt(diagnostic.End + startOffset)
+					},
+					message: diagnostic.Message
+				})
+			}
 		}
-	}
+	});
 
 	// Send the computed diagnostics to VSCode.
-	connection.sendDiagnostics({ uri: textDocument.uri, diagnostics: documentDiagnostics });
+	connection.sendDiagnostics({ uri: document.uri, diagnostics: documentDiagnostics });
 }
 
 connection.onDidChangeWatchedFiles(_change => {
@@ -235,13 +345,15 @@ connection.onCompletion(
         // which code complete got requested. For the example we ignore this
         // info and always provide the same completion items.
 
-        const kustoCodeScript = kustoCodeScripts.get(_textDocumentPosition.textDocument.uri);
-        if (kustoCodeScript === undefined) {
+        //console.log("Completion Event");
+
+        const positionedCodeScript = getPositionedCodeScriptAtDocumentPosition(_textDocumentPosition);
+        if (positionedCodeScript === undefined) {
             return [];
         }
 
         try {
-            return getVSCodeCompletionItemsAtPosition(kustoCodeScript, _textDocumentPosition.position.line + 1, _textDocumentPosition.position.character + 1)
+            return getVSCodeCompletionItemsAtPosition(positionedCodeScript.codeScript, _textDocumentPosition.position.line - positionedCodeScript.start + 1, _textDocumentPosition.position.character + 1)
         } catch (e) {
             connection.console.error(e);
             return [];
@@ -259,10 +371,11 @@ connection.onCompletionResolve(
 
 connection.onHover(
     (params: TextDocumentPositionParams): Hover | null => {
-        const kustoCodeScript = kustoCodeScripts.get(params.textDocument.uri);
+        const positionedCodeScript = getPositionedCodeScriptAtDocumentPosition(params);
+        const kustoCodeScript = positionedCodeScript.codeScript;
         if (kustoCodeScript !== undefined) {
             let position = {v:-1};
-            let positionValid = kustoCodeScript.TryGetTextPosition(params.position.line + 1, params.position.character + 1, position);
+            let positionValid = kustoCodeScript.TryGetTextPosition(params.position.line - positionedCodeScript.start + 1, params.position.character + 1, position);
             const kustoCodeBlock = kustoCodeScript.GetBlockAtPosition(position.v);
             const quickInfo = kustoCodeBlock.Service.GetQuickInfo(position.v);
 
@@ -272,9 +385,9 @@ connection.onHover(
     }
 )
 
-connection.onDocumentFormatting(
+/*connection.onDocumentFormatting(
     (params: DocumentFormattingParams): TextEdit[] | null => {
-        const kustoCodeScript = kustoCodeScripts.get(params.textDocument.uri);
+        const kustoCodeScript = kustoCodeScripts.get(params.textDocument.uri)[0].codeScript; //Just a temporary change to get rid of diagnostics. Would have maybe initiate loop for each script
         if (kustoCodeScript === undefined) {
             return null;
         }
@@ -286,7 +399,7 @@ connection.onDocumentFormatting(
         }, formatted)];
         return changes;
     }
-)
+)*/
 
 /*
 connection.onDidOpenTextDocument((params) => {

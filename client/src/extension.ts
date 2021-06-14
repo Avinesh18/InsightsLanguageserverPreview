@@ -41,7 +41,7 @@ export function activate(context: ExtensionContext) {
 	// Options to control the language client
 	let clientOptions: LanguageClientOptions = {
 		// Register the server for kusto documents
-		documentSelector: [{ scheme: 'file', language: 'kusto' }],
+		documentSelector: [{ scheme: 'file', language: 'markdown' }],
 		synchronize: {
 			// Notify the server about file changes to '.clientrc files contained in the workspace
 			fileEvents: workspace.createFileSystemWatcher('**/.clientrc')
@@ -50,8 +50,8 @@ export function activate(context: ExtensionContext) {
 
 	// Create the language client and start the client.
 	client = new LanguageClient(
-		'kuskusKustoLanguageServer',
-		'[Kuskus] Kusto Language Server',
+		'insightsLanguageServer',
+		'Insights Language Server',
 		serverOptions,
 		clientOptions
 	);
@@ -61,25 +61,25 @@ export function activate(context: ExtensionContext) {
 	client.onDidChangeState(listener => {
 		// TODO, what is state 2? listening I think? where is the enum for this?
 		if (listener.newState == 2) {
-			window.showInformationMessage('Kuskus loaded!');
+			window.showInformationMessage('Insights Languageserver loaded!');
 
-			client.onRequest('kuskus.loadSymbols.auth', ( { clusterUri, database, verificationUrl, verificationCode }: { clusterUri: string, database: string, verificationUrl: string, verificationCode: string }) => {
-				// window.showInformationMessage(`[kuskus.loadSymbols.auth] cluster ${clusterUri} database ${database} verificationUrl ${verificationUrl} verificationCode ${verificationCode}`);
+			client.onRequest('insights.loadSymbols.auth', ( { clusterUri, database, verificationUrl, verificationCode }: { clusterUri: string, database: string, verificationUrl: string, verificationCode: string }) => {
+				// window.showInformationMessage(`[insights.loadSymbols.auth] cluster ${clusterUri} database ${database} verificationUrl ${verificationUrl} verificationCode ${verificationCode}`);
 				clipboardy.writeSync(verificationCode);
 				window.showInformationMessage(`Login with code ${verificationCode} (it's already on your clipboard)`);
 				open(verificationUrl);
 			});
 
-			client.onNotification('kuskus.loadSymbols.auth.complete.success', ( { clusterUri, database }: { clusterUri: string, database: string } ) => {
-				window.showInformationMessage(`[Kuskus] Successfully authenticated to ${clusterUri}/${database}`);
+			client.onNotification('insights.loadSymbols.auth.complete.success', ( { clusterUri, database }: { clusterUri: string, database: string } ) => {
+				window.showInformationMessage(`[Insights] Successfully authenticated to ${clusterUri}/${database}`);
 			});
 
-			client.onNotification('kuskus.loadSymbols.auth.complete.error', ( { clusterUri, database }: { clusterUri: string, database: string } ) => {
-				window.showErrorMessage(`[Kuskus] Failed to authenticate to ${clusterUri}/${database}`);
+			client.onNotification('insights.loadSymbols.auth.complete.error', ( { clusterUri, database }: { clusterUri: string, database: string } ) => {
+				window.showErrorMessage(`[Insights] Failed to authenticate to ${clusterUri}/${database}`);
 			});
 
-			client.onNotification('kuskus.loadSymbols.success', ( { clusterUri, database }: { clusterUri: string, database: string } ) => {
-				window.showInformationMessage(`[Kuskus] Successfully loaded symbols from ${clusterUri}/${database}`);
+			client.onNotification('insights.loadSymbols.success', ( { clusterUri, database }: { clusterUri: string, database: string } ) => {
+				window.showInformationMessage(`[Insights] Successfully loaded symbols from ${clusterUri}/${database}`);
 			});
 		}
 	});
@@ -92,7 +92,7 @@ export function deactivate(): Thenable<void> | undefined {
 	return client.stop();
 }
 
-commands.registerCommand('kuskus.loadSymbols', async () => {
+commands.registerCommand('insights.loadSymbols', async () => {
 	if (client) {
 		const clusterUri = await window.showInputBox({
 			ignoreFocusOut: true,
@@ -115,7 +115,7 @@ commands.registerCommand('kuskus.loadSymbols', async () => {
 			return;
 		}
 		
-		client.sendRequest('kuskus.loadSymbols', { clusterUri, database });
+		client.sendRequest('insights.loadSymbols', { clusterUri, database });
 	} else {
 		window.showErrorMessage('Extension not yet loaded. Hold your horses. Please wait a moment and try again.');
 	}
@@ -124,7 +124,7 @@ commands.registerCommand('kuskus.loadSymbols', async () => {
 // This is not exposed until it's exposed in root package.json
 // This feature is unfinished for now, it parses schema, but language server
 // is not picking up the new table schema.
-commands.registerCommand('kuskus.loadTable', async () => {
+commands.registerCommand('insights.loadTable', async () => {
 	if (client) {
 		
 		const tableName = await window.showInputBox({
@@ -137,7 +137,7 @@ commands.registerCommand('kuskus.loadTable', async () => {
 			return;
 		}
 		
-		client.sendRequest('kuskus.loadTable', tableName);
+		client.sendRequest('insights.loadTable', tableName);
 	} else {
 		window.showErrorMessage('Extension not yet loaded. Hold your horses. Please wait a moment and try again.');
 	}

@@ -1,18 +1,10 @@
 {
-    "name": "kuskus-kusto-language-server",
-    "displayName": "[Kuskus] Kusto Language Server",
-    "description": "Language server for the Kusto query language",
+    "name": "insights-language-server",
+    "displayName": "[Insights] Insights Language Server",
+    "description": "Language server for the Insights query language",
     "version": "1.0.1",
-    "publisher": "rosshamish",
+    "publisher": "Temp",
     "license": "Apache-2.0",
-    "homepage": "https://github.com/rosshamish/kuskus",
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/rosshamish/kuskus"
-    },
-    "bugs": {
-        "url": "https://github.com/rosshamish/kuskus/issues"
-    },
     "engines": {
         "vscode": "^1.33.0"
     },
@@ -21,40 +13,39 @@
         "Formatters"
     ],
     "keywords": [
-        "kusto",
+        "insights",
         "language",
-        "kuskus",
         "query",
         "azure data explorer",
-        "azure",
-        "csl",
-        "kql"
+        "azure"
     ],
     "activationEvents": [
-        "onLanguage:kusto"
+        "onLanguage:markdown"
     ],
     "main": "./client/out/extension",
     "contributes": {
+        "markdown.previewScripts": [
+            "./main.bundle.js"
+        ],
+        "markdown.markdownItPlugins": true,
         "languages": [
             {
-                "id": "kusto",
+                "id": "markdown",
                 "aliases": [
-                    "Kusto",
-                    "kusto"
+                    "Markdown",
+                    "markdown"
                 ],
                 "extensions": [
-                    ".csl",
-                    ".kusto",
-                    ".kql"
+                    ".md"
                 ],
                 "configuration": "./language-configuration.json"
             }
         ],
         "configuration": {
             "type": "object",
-            "title": "[Kuskus] Kusto",
+            "title": "Insights",
             "properties": {
-                "kuskusLanguageServer.diagnosticsEnabled": {
+                "insightsLanguageServer.diagnosticsEnabled": {
                     "scope": "resource",
                     "type": "boolean",
                     "default": true,
@@ -64,8 +55,8 @@
         },
         "commands": [
             {
-                "command": "kuskus.loadSymbols",
-                "title": "[Kuskus] Load Symbols from Cluster"
+                "command": "insights.loadSymbols",
+                "title": "[Insights] Load Symbols from Cluster"
             }
         ]
     },

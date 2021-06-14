@@ -1,22 +1,6 @@
-# Kusto Language Server
+# Insights Language Server
 
 ## Features
-
-Autocomplete
-
-![Autocomplete](https://github.com/rosshamish/kuskus/raw/master/kusto-language-server/readme-content/language-server/completion.gif)
-
-Hover info
-
-![Hover Info](https://github.com/rosshamish/kuskus/raw/master/kusto-language-server/readme-content/language-server/hover-info.gif)
-
-Format Document
-
-![Format Document](https://github.com/rosshamish/kuskus/raw/master/kusto-language-server/readme-content/language-server/format-document.gif)
-
-Supports builtins out of the box. You can also Load Symbols to get intellisense for the tables and functions on your cluster.
-
-![Load Symbols](https://github.com/rosshamish/kuskus/raw/master/kusto-language-server/readme-content/language-server/load-symbols.gif)
 
 Diagnostics are also available, but are not yet fully supported and are disabled by default. Diagnostics are the red squiggly underlines / the items in the Problems tab.
 
