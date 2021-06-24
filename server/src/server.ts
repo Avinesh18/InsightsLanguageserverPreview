@@ -24,15 +24,8 @@ import {
     TextDocumentChangeEvent
 } from 'vscode-languageserver';
 
-import { getClient as getKustoClient, TokenResponse, getFirstOrDefaultClient } from './kustoConnection';
-import { getSymbolsOnCluster, getSymbolsOnTable } from './kustoSymbols';
-import { formatCodeScript } from './kustoFormat';
 import { getVSCodeCompletionItemsAtPosition } from './kustoCompletion';
-import {getGlobalState} from './globalStateJson'
-import { start } from 'repl';
-import { endsWith } from 'lodash';
-import { profile } from 'console';
-import _ = require('lodash');
+import getGlobalState from './globalStateJson';
 
 interface InsightsBlock
 {
@@ -48,7 +41,6 @@ interface PositionedCodeScript {
     
     //Line no. where insights block starts
     start: number;
-
     end: number;
 }
 
@@ -69,6 +61,8 @@ let kustoCodeScripts: Map<documentURI, PositionedCodeScript[]> = new Map();
 let hasConfigurationCapability: boolean = false;
 let hasWorkspaceFolderCapability: boolean = false;
 let hasDiagnosticRelatedInformationCapability: boolean = false;
+
+var data  = {value: 1};
 
 connection.onInitialize((params: InitializeParams) => {
     let capabilities = params.capabilities;
@@ -111,56 +105,6 @@ connection.onInitialized(async () => {
         });
     }
 });
-
-connection.onRequest('insights.loadSymbols', async ({ clusterUri, database }: { clusterUri: string, database: string }) => {
-	let kustoClient = getKustoClient(clusterUri, (tokenResponse: TokenResponse) => {
-		connection.sendRequest('insights.loadSymbols.auth', { clusterUri, database, verificationUrl: tokenResponse.verificationUrl, verificationCode: tokenResponse.userCode });
-	});
-
-	try {
-		kustoGlobalState = await getSymbolsOnCluster(kustoClient, database);
-		connection.sendNotification('insights.loadSymbols.auth.complete.success', { clusterUri, database });
-		connection.sendNotification('insights.loadSymbols.success', { clusterUri, database });
-		/*kustoCodeScripts.forEach((value, key) => {
-			kustoCodeScripts.set(key, value.WithGlobals(kustoGlobalState));
-		});*/
-        kustoCodeScripts.forEach((value, key) => {
-            for(var i = 0; i<value.length; ++i)
-            {
-                value[i] = {codeScript: value[i].codeScript.WithGlobals(kustoGlobalState), start: value[i].start, end:value[i].end} as PositionedCodeScript;
-            }
-            kustoCodeScripts.set(key, value);
-        })
-	} catch {
-		connection.sendNotification('insights.loadSymbols.auth.complete.error', { clusterUri, database });
-	}
-});
-
-connection.onRequest('insights.loadTable', async ( tableName : string) => {
-	
-	let clusterUri: string = "";
-	let kustoClient = null;
-	 ( {clusterUri, kustoClient} = getFirstOrDefaultClient());
-	 let database: string = kustoGlobalState.Database.Name;
-	
-	try {
-		kustoGlobalState = await getSymbolsOnTable(kustoClient, database, tableName, kustoGlobalState);
-		connection.sendNotification('insights.loadSymbols.auth.complete.success', { clusterUri, database });
-		connection.sendNotification('insights.loadSymbols.success', { clusterUri, database });
-		/*kustoCodeScripts.forEach((value, key) => {
-			kustoCodeScripts.set(key, value.WithGlobals(kustoGlobalState));
-		});*/
-        kustoCodeScripts.forEach((value, key) => {
-            for(var i = 0; i<value.length; ++i)
-            {
-                value[i] = {codeScript: value[i].codeScript.WithGlobals(kustoGlobalState), start: value[i].start, end:value[i].end} as PositionedCodeScript;
-            }
-            kustoCodeScripts.set(key, value);
-        })
-	} catch {
-		connection.sendNotification('insights.loadSymbols.auth.complete.error', { clusterUri, database });
-	}
-})
 
 // The example settings
 interface Settings {
@@ -261,7 +205,10 @@ function getInsightsBlocks(document: TextDocument): InsightsBlock[]
 			return;
 		}
 
-		var lines = block.match(/\n/g).length;
+        var newLineArray = block.match(/\n/g);
+        var lines = 0;
+        if(newLineArray != null)
+		    lines = newLineArray.length;
 
 		var start = line + 1;
 		var end = line + 1 + lines - 2;
@@ -345,8 +292,6 @@ connection.onCompletion(
         // which code complete got requested. For the example we ignore this
         // info and always provide the same completion items.
 
-        //console.log("Completion Event");
-
         const positionedCodeScript = getPositionedCodeScriptAtDocumentPosition(_textDocumentPosition);
         if (positionedCodeScript === undefined) {
             return [];
@@ -355,7 +300,7 @@ connection.onCompletion(
         try {
             return getVSCodeCompletionItemsAtPosition(positionedCodeScript.codeScript, _textDocumentPosition.position.line - positionedCodeScript.start + 1, _textDocumentPosition.position.character + 1)
         } catch (e) {
-            connection.console.error(e);
+            connection.console.error(e + "");
             return [];
         }
     }
@@ -372,6 +317,9 @@ connection.onCompletionResolve(
 connection.onHover(
     (params: TextDocumentPositionParams): Hover | null => {
         const positionedCodeScript = getPositionedCodeScriptAtDocumentPosition(params);
+        if(positionedCodeScript == undefined)
+            return {contents: ""};
+
         const kustoCodeScript = positionedCodeScript.codeScript;
         if (kustoCodeScript !== undefined) {
             let position = {v:-1};

@@ -1,3 +1,8 @@
+/**
+ * We don't have an insights web service set up yet. So for the time being we are loading the database
+ * schema from the local schema.json file.
+ */
+
 /// <reference path = "../../kql_bridge/Kusto.Language.Bridge.d.ts" />
 /// <reference path="./typings/MissingFromBridge.d.ts" />
 /// <reference path="./typings/refs.d.ts" />
@@ -6,11 +11,11 @@ import './Kusto.Language.Bridge';
 
 let defaultDatabase:any;
 
-export function getGlobalState(): Kusto.Language.GlobalState
+export default function getGlobalState(): Kusto.Language.GlobalState
 {
 	try
 	{
-		var obj:any = require("../../schema.json");
+		var obj:any = require("../schema.json");
 	}
 	catch(e)
 	{

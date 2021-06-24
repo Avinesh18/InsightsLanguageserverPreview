@@ -2,7 +2,7 @@
 	"name": "insights-language-server-server",
 	"description": "LSP part of the Insights Language Server",
 	"version": "1.0.0",
-	"publisher": "",
+	"publisher": "Insights",
 	"license": "Apache-2.0",
 	"engines": {
 		"vscode": "^1.33.0"

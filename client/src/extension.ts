@@ -40,7 +40,7 @@ export function activate(context: ExtensionContext) {
 
 	// Options to control the language client
 	let clientOptions: LanguageClientOptions = {
-		// Register the server for kusto documents
+		// Register the server for markdown documents
 		documentSelector: [{ scheme: 'file', language: 'markdown' }],
 		synchronize: {
 			// Notify the server about file changes to '.clientrc files contained in the workspace

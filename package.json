@@ -3,7 +3,7 @@
     "displayName": "[Insights] Insights Language Server",
     "description": "Language server for the Insights query language",
     "version": "1.0.1",
-    "publisher": "Temp",
+    "publisher": "Insights",
     "license": "Apache-2.0",
     "engines": {
         "vscode": "^1.33.0"
@@ -52,32 +52,36 @@
                     "description": "Whether diagnostics are enabled or not (red squiggly underlines, Problems tab)"
                 }
             }
-        },
-        "commands": [
-            {
-                "command": "insights.loadSymbols",
-                "title": "[Insights] Load Symbols from Cluster"
-            }
-        ]
+        }
     },
     "scripts": {
         "vscode:prepublish": "cd client && npm run update-vscode && cd .. && npm run compile",
         "compile": "tsc -b",
         "watch": "tsc -b -w",
         "postinstall": "cd client && npm install && cd ../server && npm install && cd ..",
-        "test": "sh ./scripts/e2e.sh"
+        "test": "sh ./scripts/e2e.sh",
+        "bundle": "webpack-cli --mode=production"
     },
     "devDependencies": {
         "@types/mocha": "^5.2.0",
         "@types/node": "^8.0.0",
         "tslint": "^5.16.0",
-        "typescript": "^3.5.1"
+        "typescript": "^3.5.1",
+        "@babel/core": "^7.4.0",
+        "babel-loader": "^8.0.5",
+        "css-loader": "^2.1.1",
+        "mini-css-extract-plugin": "^0.5.0",
+        "webpack": "^4.44.1",
+        "webpack-cli": "^3.3.7"
     },
     "dependencies": {
         "@types/lodash": "^4.14.136",
         "azure-kusto-data": "^0.2.5",
         "clipboardy": "^2.1.0",
+        "d3": "^7.0.0",
         "lodash": "^4.17.19",
-        "open": "^6.4.0"
+        "node-rest-client": "^3.1.0",
+        "open": "^6.4.0",
+        "vscode-languageclient": "^4.1.4"
     }
 }
