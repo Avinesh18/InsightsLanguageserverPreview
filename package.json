@@ -52,7 +52,13 @@
                     "description": "Whether diagnostics are enabled or not (red squiggly underlines, Problems tab)"
                 }
             }
-        }
+        },
+        "commands": [
+            {
+                "command": "insights.setCredential",
+                "title": "[Insights] Set Credentials for API Calls"
+            }
+        ]
     },
     "scripts": {
         "vscode:prepublish": "cd client && npm run update-vscode && cd .. && npm run compile",
@@ -82,6 +88,7 @@
         "lodash": "^4.17.19",
         "node-rest-client": "^3.1.0",
         "open": "^6.4.0",
-        "vscode-languageclient": "^4.1.4"
+        "vscode-languageclient": "^4.1.4",
+        "keytar": "^7.7.0"
     }
 }

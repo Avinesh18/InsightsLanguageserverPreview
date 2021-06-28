@@ -94,8 +94,21 @@ function* getData(insightsDivElements)
 {
     for(var i=0; i<insightsDivElements.length; ++i)
     {
-        insightsDivElements[i].innerHTML = `<div id="insightsChartContainer${i}"></div>`;
-        yield fetch("http://localhost:8080");
+        var innerDiv = insightsDivElements[i].getElementsByTagName("div")[0];
+        var query = innerDiv.innerHTML;
+        var accessToken = innerDiv.getAttribute("accessToken");
+        if(sessionStorage.getItem(query))
+            yield sessionStorage.getItem(query);
+        else
+            yield fetch("http://localhost:8080", {
+                method: 'POST',
+                headers: {
+                    "Authorization": "Basic " + btoa(accessToken),
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({query: query})
+            });
+        
     }
 }
 
@@ -114,26 +127,44 @@ function getDataset(rows)
     return dataset;
 }
 
-function spawn(generator)
-{
-    return new Promise((accept, reject) => {
-        var i = 0;
-        var onResult = lastPromiseResult => {
-            var {value, done} = generator.next(lastPromiseResult);
-            if(!done)
-            {
-                value.then(response => response.json())
-                    .then( data => {
-                        d3plot(`insightsChartContainer${i++}`, getDataset(data.data.rows), data.data.columns.map(e => e.name));
-                    })
-                    .then(onResult, reject);
-            }
-            else
-                accept(value);
-        };
+(async function() {
+    var i = 0;
+    var generator = getData(insightsDivElements);
 
-        onResult();
-    });
-}
+    var plotNext = () => {
+        var {value, done} = generator.next();
 
-spawn(getData(insightsDivElements)).then(e => {}, e => {});
+        if(!done && value instanceof Promise)
+        {
+            value.then(response => {
+                if(response.status != 200)
+                    throw new Error(response.statusText);
+
+                return response.json();
+            })
+            .then( data => {
+                    let query = document.getElementsByClassName('language-insights')[i].getElementsByTagName('div')[0].innerHTML;
+                    if(!sessionStorage.getItem(query))
+                        sessionStorage.setItem(query, JSON.stringify(data));
+
+                    insightsDivElements[i].innerHTML = `<div id="insightsChartContainer${i}"></div>`;
+                    d3plot(`insightsChartContainer${i++}`, getDataset(data.data.rows), data.data.columns.map(e => e.name));
+                })
+            .catch(error => {
+                insightsDivElements[i++].innerHTML = error.message.toUpperCase();
+            })
+            .then(plotNext)
+        }
+        else if(!done)
+        {
+            value = JSON.parse(value);
+            insightsDivElements[i].innerHTML = `<div id="insightsChartContainer${i}"></div>`;
+            d3plot(`insightsChartContainer${i++}`, getDataset(value.data.rows), value.data.columns.map(e => e.name));
+            plotNext();
+        }
+        else
+            return;
+    };
+
+    await plotNext();
+})()

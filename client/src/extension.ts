@@ -5,8 +5,7 @@
 
 import * as path from 'path';
 import { workspace, ExtensionContext, commands, window } from 'vscode';
-import * as clipboardy from 'clipboardy';
-import * as open from 'open';
+import * as keytar from 'keytar';
 
 import {
 	LanguageClient,
@@ -17,8 +16,12 @@ import {
 } from 'vscode-languageclient';
 
 let client: LanguageClient;
+let accessToken = "";
+const service = "Github Insights"
 
-export function activate(context: ExtensionContext) {
+export async function activate(context: ExtensionContext) {
+	await setAccessToken();
+
 	// The server is implemented in node
 	let serverModule = context.asAbsolutePath(
 		path.join('server', 'out', 'server.js')
@@ -59,30 +62,58 @@ export function activate(context: ExtensionContext) {
 	client.start();
 
 	client.onDidChangeState(listener => {
-		// TODO, what is state 2? listening I think? where is the enum for this?
 		if (listener.newState == 2) {
 			window.showInformationMessage('Insights Languageserver loaded!');
-
-			client.onRequest('insights.loadSymbols.auth', ( { clusterUri, database, verificationUrl, verificationCode }: { clusterUri: string, database: string, verificationUrl: string, verificationCode: string }) => {
-				// window.showInformationMessage(`[insights.loadSymbols.auth] cluster ${clusterUri} database ${database} verificationUrl ${verificationUrl} verificationCode ${verificationCode}`);
-				clipboardy.writeSync(verificationCode);
-				window.showInformationMessage(`Login with code ${verificationCode} (it's already on your clipboard)`);
-				open(verificationUrl);
-			});
-
-			client.onNotification('insights.loadSymbols.auth.complete.success', ( { clusterUri, database }: { clusterUri: string, database: string } ) => {
-				window.showInformationMessage(`[Insights] Successfully authenticated to ${clusterUri}/${database}`);
-			});
-
-			client.onNotification('insights.loadSymbols.auth.complete.error', ( { clusterUri, database }: { clusterUri: string, database: string } ) => {
-				window.showErrorMessage(`[Insights] Failed to authenticate to ${clusterUri}/${database}`);
-			});
-
-			client.onNotification('insights.loadSymbols.success', ( { clusterUri, database }: { clusterUri: string, database: string } ) => {
-				window.showInformationMessage(`[Insights] Successfully loaded symbols from ${clusterUri}/${database}`);
-			});
 		}
 	});
+
+	let disposableSetCredential = commands.registerCommand("insights.setCredential", async () => {
+
+		const account = await window.showInputBox({
+			ignoreFocusOut: true,
+			placeHolder: 'Account Name',
+			prompt: "Enter the Account Name"
+		})
+		if(!account)
+		{
+			window.showErrorMessage("Account Required");
+			return;
+		}
+
+		const token = await window.showInputBox({
+			ignoreFocusOut: true,
+			password: true,
+			placeHolder: "Access Token",
+			prompt: "Enter the Access Token string"
+		})
+		if(!token)
+		{
+			window.showErrorMessage("Token Required");
+			return;
+		}
+
+		//Overwrite existing credentials
+		var credentials = await keytar.findCredentials(service);
+		if(credentials.length)
+			await keytar.deletePassword(service, credentials[0].account);
+		await keytar.setPassword(service, account, token);
+		accessToken = token;
+
+		window.showInformationMessage("Credentials Set Successfully");
+	})
+	context.subscriptions.push(disposableSetCredential);
+
+	return {
+		extendMarkdownIt(md) {
+			const highlight = md.options.highlight;
+			md.options.highlight = (code, lang) => {
+				if(lang && lang.match(/\binsights\b/i))
+					return `<div accessToken="${accessToken}">${code}</div>`
+				return highlight(code, lang);
+			}
+			return md;
+		}
+	}
 }
 
 export function deactivate(): Thenable<void> | undefined {
@@ -92,53 +123,11 @@ export function deactivate(): Thenable<void> | undefined {
 	return client.stop();
 }
 
-commands.registerCommand('insights.loadSymbols', async () => {
-	if (client) {
-		const clusterUri = await window.showInputBox({
-			ignoreFocusOut: true,
-			value: 'https://clustername.kusto.windows.net',
-			valueSelection: ['https://'.length, 'https://clustername'.length],
-			prompt: 'Cluster URI'
-		});
-		if (!clusterUri) {
-			window.showErrorMessage('Cluster URI not provided, couldn\'t load symbols');
-			return;
-		}
-
-		const database = await window.showInputBox({
-			ignoreFocusOut: true,
-			placeHolder: 'DatabaseName',
-			prompt: 'Default Database Name'
-		});
-		if (!database) {
-			window.showErrorMessage('Default database name not provided, couldn\'t load symbols');
-			return;
-		}
-		
-		client.sendRequest('insights.loadSymbols', { clusterUri, database });
-	} else {
-		window.showErrorMessage('Extension not yet loaded. Hold your horses. Please wait a moment and try again.');
-	}
-});
-
-// This is not exposed until it's exposed in root package.json
-// This feature is unfinished for now, it parses schema, but language server
-// is not picking up the new table schema.
-commands.registerCommand('insights.loadTable', async () => {
-	if (client) {
-		
-		const tableName = await window.showInputBox({
-			ignoreFocusOut: true,
-			placeHolder: 'TableName',
-			prompt: 'Table Name'
-		});
-		if (!tableName) {
-			window.showErrorMessage('Table name not provided, couldn\'t load symbols');
-			return;
-		}
-		
-		client.sendRequest('insights.loadTable', tableName);
-	} else {
-		window.showErrorMessage('Extension not yet loaded. Hold your horses. Please wait a moment and try again.');
-	}
-});
+async function setAccessToken()
+{
+	var credentials = await keytar.findCredentials(service);
+	if(credentials.length)
+		accessToken = credentials[0].password;
+	else
+		window.showErrorMessage("No credentials found for Insights Web Service");
+}
