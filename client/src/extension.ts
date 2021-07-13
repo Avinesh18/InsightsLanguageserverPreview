@@ -20,7 +20,7 @@ let accessToken = "";
 const service = "Github Insights"
 
 export async function activate(context: ExtensionContext) {
-	await setAccessToken();
+	await getAccessToken();
 
 	// The server is implemented in node
 	let serverModule = context.asAbsolutePath(
@@ -101,6 +101,7 @@ export async function activate(context: ExtensionContext) {
 
 		window.showInformationMessage("Credentials Set Successfully");
 	})
+
 	context.subscriptions.push(disposableSetCredential);
 
 	return {
@@ -108,7 +109,7 @@ export async function activate(context: ExtensionContext) {
 			const highlight = md.options.highlight;
 			md.options.highlight = (code, lang) => {
 				if(lang && lang.match(/\binsights\b/i))
-					return `<div accessToken="${accessToken}">${code}</div>`
+					return `<div access-token="${accessToken}">${code}</div>`
 				return highlight(code, lang);
 			}
 			return md;
@@ -123,7 +124,7 @@ export function deactivate(): Thenable<void> | undefined {
 	return client.stop();
 }
 
-async function setAccessToken()
+async function getAccessToken()
 {
 	var credentials = await keytar.findCredentials(service);
 	if(credentials.length)

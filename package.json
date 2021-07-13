@@ -85,10 +85,11 @@
         "azure-kusto-data": "^0.2.5",
         "clipboardy": "^2.1.0",
         "d3": "^7.0.0",
+        "highcharts": "^9.1.2",
+        "keytar": "^7.7.0",
         "lodash": "^4.17.19",
         "node-rest-client": "^3.1.0",
         "open": "^6.4.0",
-        "vscode-languageclient": "^4.1.4",
-        "keytar": "^7.7.0"
+        "vscode-languageclient": "^4.1.4"
     }
 }
