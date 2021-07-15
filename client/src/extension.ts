@@ -17,6 +17,7 @@ import {
 
 let client: LanguageClient;
 let accessToken = "";
+let scope = "";
 const service = "Github Insights"
 
 export async function activate(context: ExtensionContext) {
@@ -61,12 +62,6 @@ export async function activate(context: ExtensionContext) {
 	// Start the client. This will also launch the server
 	client.start();
 
-	client.onDidChangeState(listener => {
-		if (listener.newState == 2) {
-			window.showInformationMessage('Insights Languageserver loaded!');
-		}
-	});
-
 	let disposableSetCredential = commands.registerCommand("insights.setCredential", async () => {
 
 		const account = await window.showInputBox({
@@ -109,7 +104,7 @@ export async function activate(context: ExtensionContext) {
 			const highlight = md.options.highlight;
 			md.options.highlight = (code, lang) => {
 				if(lang && lang.match(/\binsights\b/i))
-					return `<div access-token="${accessToken}">${code}</div>`
+					return `<div access-token="${accessToken}" scope=${scope}>${code}</div>`
 				return highlight(code, lang);
 			}
 			return md;
@@ -127,8 +122,10 @@ export function deactivate(): Thenable<void> | undefined {
 async function getAccessToken()
 {
 	var credentials = await keytar.findCredentials(service);
-	if(credentials.length)
+	if(credentials.length) {
 		accessToken = credentials[0].password;
+		scope = credentials[0].account;
+	}
 	else
 		window.showErrorMessage("No credentials found for Insights Web Service");
 }

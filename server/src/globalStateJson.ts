@@ -3,11 +3,11 @@
  * schema from the local schema.json file.
  */
 
-/// <reference path = "../../kql_bridge/Kusto.Language.Bridge.d.ts" />
+/// <reference path = "../../InsightsParser_Bridge/Kusto.Language.Bridge.d.ts" />
 /// <reference path="./typings/MissingFromBridge.d.ts" />
 /// <reference path="./typings/refs.d.ts" />
 import './bridge.min';
-import './Kusto.Language.Bridge';
+import './Kusto.Language.Bridge.min';
 
 let defaultDatabase:any;
 

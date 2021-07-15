@@ -1,10 +1,10 @@
 
 //// <reference path="../node_modules/@kusto/language-service-next/Kusto.Language.Bridge.d.ts" />
-/// <reference path = "../../kql_bridge/Kusto.Language.Bridge.d.ts" />
+/// <reference path = "../../InsightsParser_Bridge/Kusto.Language.Bridge.d.ts" />
 /// <reference path="./typings/MissingFromBridge.d.ts" />
 /// <reference path="./typings/refs.d.ts" />
 import './bridge.min';
-import './Kusto.Language.Bridge';
+import './Kusto.Language.Bridge.min';
 
 import { CompletionItemKind, CompletionItem } from 'vscode-languageserver';
 
