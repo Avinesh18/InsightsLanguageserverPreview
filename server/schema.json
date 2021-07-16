@@ -26,21 +26,81 @@
 			  ]
 			},
 			{
-			  "name": "Table1",
+			  "name": "Repository",
 			  "columns": [
 				{
-				  "name": "Name",
-				  "type": "string",
-				  "identity": true
-				},
-				{
-				  "name": "Age",
-				  "type": "int",
+				  "name": "AccountId",
+				  "type": "bigint",
 				  "identity": false
 				},
 				{
-				  "name": "Address",
-				  "type": "string",
+				  "name": "RepositoryId",
+				  "type": "bigint",
+				  "identity": false
+				},
+				{
+				  "name": "Name",
+				  "type": "nvarchar",
+				  "identity": false
+				},
+				{
+				  "name": "Description",
+				  "type": "nvarchar",
+				  "identity": false
+				},
+				{
+				  "name": "IsPublic",
+				  "type": "bit",
+				  "identity": false
+				},
+				{
+				  "name": "IsArchived",
+				  "type": "bit",
+				  "identity": false
+				},
+				{
+				  "name": "IsForked",
+				  "type": "bit",
+				  "identity": false
+				},
+				{
+				  "name": "CreationDate",
+				  "type": "datetimeoffset",
+				  "identity": false
+				},
+				{
+				  "name": "LastUpdated",
+				  "type": "datetimeoffset",
+				  "identity": false
+				},
+				{
+				  "name": "LastPushDate",
+				  "type": "datetimeoffset",
+				  "identity": false
+				},
+				{
+				  "name": "PrimaryLanguageNameId",
+				  "type": "bigint",
+				  "identity": false
+				},
+				{
+				  "name": "Url",
+				  "type": "nvarchar",
+				  "identity": false
+				},
+				{
+				  "name": "ImportStatus",
+				  "type": "tinyint",
+				  "identity": false
+				},
+				{
+				  "name": "ImportFailedReason",
+				  "type": "nvarchar",
+				  "identity": false
+				},
+				{
+				  "name": "LastGoodImportStatus",
+				  "type": "tinyint",
 				  "identity": false
 				}
 			  ]

@@ -83,7 +83,7 @@ function getColumn(column: any): Kusto.Language.Symbols.ColumnSymbol
 	{
 		return new Kusto.Language.Symbols.ColumnSymbol(column.name, Kusto.Language.Symbols.ScalarTypes.Decimal, "", column.identity);
 	}
-	else if(column.type == "datetime")
+	else if(column.type == "datetime" || column.type == 'datetimeoffset')
 	{
 		return new Kusto.Language.Symbols.ColumnSymbol(column.name, Kusto.Language.Symbols.ScalarTypes.DateTime, "", column.identity);
 	}

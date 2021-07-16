@@ -4,6 +4,7 @@ import '@github/series-table-element'
 
 const apiURL = "https://insights.github.com/sql/api"
 //const apiURL = "http://localhost:8080";
+const sqlApi = "https://localhost:44313/api/sql";
 
 const targetNode = document.querySelector('body');
 const config = { attributes: true, childList: true, subtree: true };
@@ -34,6 +35,25 @@ async function getFormattedSeries(node) {
     }
 }
 
+async function getSqlQuery(kqlQuery) {
+    const response = await fetch(sqlApi, {
+        method: 'POST',
+        headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+        },
+        body: JSON.stringify({query: kqlQuery})
+    });
+    if(response.status != 200)
+    {
+        throw new Error("SQL API Error: " + response.status);
+    }
+
+    let data = await response.json();
+
+    return data.query;
+}
+
 async function getData(insightsElement) {
     let innerDiv = insightsElement.querySelector('div');
     const token = innerDiv.getAttribute('access-token');
@@ -43,6 +63,8 @@ async function getData(insightsElement) {
     if(sessionStorage.getItem(query))
         return JSON.parse(sessionStorage.getItem(query));
     else {
+        const sqlQuery = await getSqlQuery(query);
+
         const response = await fetch(apiURL, {
             method: 'POST',
             headers: {
@@ -50,11 +72,11 @@ async function getData(insightsElement) {
                 'X-PAT-Scope': scope,
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({query: query})
+            body: JSON.stringify({query: sqlQuery})
         })
 
         if(response.status != 200) {
-            throw new Error(response.statusText);
+            throw new Error("Insights API Error: " + response.status);
         }
 
         let { data, errors } = await response.json();
@@ -87,7 +109,7 @@ function parseDate(ele)
 
 function getProperties(series, include)
 {
-    const properties = ["y", "m", "d", "h", "m", "s", "ms"];
+    const properties = ["y", "m", "d", "h", "min", "s", "ms"];
     let includeArray = Object.entries(include);
     var start = -1;
     var end = -1;
@@ -100,6 +122,7 @@ function getProperties(series, include)
     if(end == -1)
         end = includeArray.length - 1;
 
+    const month = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     const MONTH_INDEX = 1;
     const HOURS_INDEX = includeArray.length - 4;
     const MINUTES_INDEX = includeArray.length - 3;
@@ -179,7 +202,7 @@ function getNumberSeries(series)
 {
     let changed = changedProperties(series);
 
-    const properties = ["y", "m", "d", "h", "m", "s", "ms"];
+    const properties = ["y", "m", "d", "h", "min", "s", "ms"];
     const conversionFactor = [-1, 12, 30, 24, 60, 60, 1000];
     let changedArray = Object.entries(changed);
     var start = -1;
@@ -209,7 +232,7 @@ function getNumberSeries(series)
     return {series: finalSeries, unit: unit};
 }
 
-function highchartsPlot(containerID, data)
+function validateData(data)
 {
     const noColumns = data.columns.length;
     if(noColumns > 2)
@@ -217,11 +240,14 @@ function highchartsPlot(containerID, data)
     else if(noColumns < 2)
         throw new Error("Too few columns");
 
-    const validXDataTypes = ["string", "number", "bigint", "datetime", "nvarchar", "tinyint"];
-    const validSeriesDataTypes = ["number", "bigint", "datetime", "tinyint"];
+    const validXDataTypes = ["string", "number", "bigint", "datetime", "datetimeoffset", "nvarchar", "tinyint", "bigint"];
+    const validSeriesDataTypes = ["number", "bigint", "datetime", "datetimeoffset", "tinyint", "bigint"];
     if(!validXDataTypes.includes(data.columns[0].dataType) || !validSeriesDataTypes.includes(data.columns[1].dataType))
-        throw new Error("Can't plot this type of data", data.columns[0].dataType, data.columns[1].dataType);
+        throw new Error("Can't plot this type of data: " + data.columns[0].dataType + ", " +  data.columns[1].dataType);
+}
 
+function highchartsPlot(containerID, data)
+{
     const xLabel = data.columns[0].name;
     const yLabel = data.columns[1].name;
     let xVals = [];
@@ -234,8 +260,8 @@ function highchartsPlot(containerID, data)
     })
 
 
-    let month = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    if(data.columns[0].dataType == "datetime") 
+    const month = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    if(data.columns[0].dataType == "datetime" || data.columns[0].dataType == "datetimeoffset") 
     {
         let {series, unit} = getProperties(xVals, changedProperties(xVals));
         if(unit == "d")
@@ -247,7 +273,7 @@ function highchartsPlot(containerID, data)
         }
         xVals = series;
     }
-    if(data.columns[1].dataType == "datetime")
+    if(data.columns[1].dataType == "datetime" || data.columns[1].dataType == "datetimeoffset")
     {
         let {series, unit} = getNumberSeries(yVals);
         yVals = series;
@@ -288,28 +314,39 @@ function highchartsPlot(containerID, data)
     Highcharts.chart(containerID, highchartsOptions);
 }
 
-const insightsElements = document.getElementsByClassName("language-insights");
+try {
 
-/*(async function() {
-    for(var i = 0; i < insightsElements.length; ++i)
-    {
-        try {
-            let data = await getData(insightsElements[i]);
-            let containerID = `insightsChartContainer${i}`
-            insightsElements[i].innerHTML = `<div id="${containerID}"></div>`;
-            highchartsPlot(containerID, data);
-        }
-        catch(e) {
-            console.error(e);
-            insightsElements[i].innerHTML = e.message.toUpperCase();
-        }
-    }
-})()*/
+    const insightsElements = document.getElementsByClassName("language-insights");
 
-for(var i = 0; i<insightsElements.length; ++i)
-{
-    let innerDiv = insightsElements[i].querySelector('div');
-    let token = innerDiv.getAttribute('access-token');
-    let scope = innerDiv.getAttribute('scope');
-    insightsElements[i].innerHTML = `<insights-query exec-type="1" data-auth="${token}" scope="${scope}" data-api="${apiURL}" data-query="${innerDiv.innerHTML}"></insights-query>`;
+    /*(async function() {
+        for(var i = 0; i < insightsElements.length; ++i)
+        {
+            try {
+                let data = await getData(insightsElements[i]);
+                validateData(data);
+                let containerID = `insightsChartContainer${i}`
+                insightsElements[i].innerHTML = `<div id="${containerID}"></div>`;
+                highchartsPlot(containerID, data);
+            }
+            catch(e) {
+                console.error(e);
+                insightsElements[i].innerHTML = e.message;
+            }
+        }
+    })();*/
+
+    (async function() {
+        for(var i = 0; i<insightsElements.length; ++i)
+        {
+            let innerDiv = insightsElements[i].querySelector('div');
+            let token = innerDiv.getAttribute('access-token');
+            let scope = innerDiv.getAttribute('scope');
+            let query = innerDiv.innerHTML;
+            let sqlQuery = await getSqlQuery(query);
+            insightsElements[i].innerHTML = `<insights-query exec-type="1" data-auth="${token}" scope="${scope}" data-api="${apiURL}" data-query="${sqlQuery}"></insights-query>`;
+        }
+    })();
+}
+catch(e) {
+    throw new Error("Insights Extension: " + e.message);
 }
