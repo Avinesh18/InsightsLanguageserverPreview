@@ -5,6 +5,7 @@ import '@github/series-table-element'
 const apiURL = "https://insights.github.com/sql/api"
 //const apiURL = "http://localhost:8080";
 const sqlApi = "https://localhost:44313/api/sql";
+//const sqlApi = "https://kqlsql.shaarad.me/api/sql"
 
 const targetNode = document.querySelector('body');
 const config = { attributes: true, childList: true, subtree: true };
@@ -13,8 +14,13 @@ const callback = async function(mutationsList, observer) {
         for(const node of mutation.addedNodes)
             if(node instanceof InsightsQueryElement)
             {
-                let formattedSeries = await getFormattedSeries(node);
-                node.generateTable(formattedSeries);
+                try {
+                    let formattedSeries = await getFormattedSeries(node);
+                    node.generateTable(formattedSeries);
+                }
+                catch(e) {
+                    node.innerHTML = e.message;
+                }
             }
 };
 const observer = new MutationObserver(callback);
@@ -25,33 +31,43 @@ async function getFormattedSeries(node) {
     if(sessionStorage.getItem(node.query))
     {
         let data = JSON.parse(sessionStorage.getItem(node.query));
+        if(!data)
+            return data;
         return node.formatData(data);
     }
     else
     {
         let data = await node.executeQuery();
         sessionStorage.setItem(node.query, JSON.stringify(data));
+        if(!data)
+            return data;
         return node.formatData(data);
     }
 }
 
 async function getSqlQuery(kqlQuery) {
-    const response = await fetch(sqlApi, {
-        method: 'POST',
-        headers: {
-            "Content-Type": "application/json",
-            "Accept": "application/json"
-        },
-        body: JSON.stringify({query: kqlQuery})
-    });
-    if(response.status != 200)
-    {
-        throw new Error("SQL API Error: " + response.status);
+
+    if(sessionStorage.getItem(kqlQuery))
+        return sessionStorage.getItem(kqlQuery);
+    else {
+        const response = await fetch(sqlApi, {
+            method: 'POST',
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            },
+            body: JSON.stringify({query: kqlQuery})
+        });
+        if(response.status != 200)
+        {
+            throw new Error("SQL API Error: " + response.status);
+        }
+
+        let data = await response.json();
+
+        sessionStorage.setItem(kqlQuery, data.query);
+        return data.query;
     }
-
-    let data = await response.json();
-
-    return data.query;
 }
 
 async function getData(insightsElement) {
@@ -323,13 +339,14 @@ try {
         {
             try {
                 let data = await getData(insightsElements[i]);
+                if(!data)
+                    continue;
                 validateData(data);
                 let containerID = `insightsChartContainer${i}`
                 insightsElements[i].innerHTML = `<div id="${containerID}"></div>`;
                 highchartsPlot(containerID, data);
             }
             catch(e) {
-                console.error(e);
                 insightsElements[i].innerHTML = e.message;
             }
         }
@@ -338,15 +355,32 @@ try {
     (async function() {
         for(var i = 0; i<insightsElements.length; ++i)
         {
-            let innerDiv = insightsElements[i].querySelector('div');
-            let token = innerDiv.getAttribute('access-token');
-            let scope = innerDiv.getAttribute('scope');
-            let query = innerDiv.innerHTML;
-            let sqlQuery = await getSqlQuery(query);
-            insightsElements[i].innerHTML = `<insights-query exec-type="1" data-auth="${token}" scope="${scope}" data-api="${apiURL}" data-query="${sqlQuery}"></insights-query>`;
+            try {
+                let innerDiv = insightsElements[i].querySelector('div');
+                let token = innerDiv.getAttribute('access-token');
+                let scope = innerDiv.getAttribute('scope');
+                let query = innerDiv.innerHTML;
+                if(query.trim() != "") {
+                    let sqlQuery = await getSqlQuery(query);
+                    insightsElements[i].innerHTML = `<insights-query exec-type="1" data-auth="${token}" scope="${scope}" data-api="${apiURL}" data-query="${sqlQuery}"></insights-query>`;
+                }
+            }
+            catch(e) {
+                insightsElements[i].innerHTML = e.message;
+            }
         }
     })();
 }
 catch(e) {
     throw new Error("Insights Extension: " + e.message);
 }
+
+/*const sqlElements = document.getElementsByClassName("language-sql");
+let token = document.getElementsByClassName("language-insights")[0].querySelector('div').getAttribute('access-token');
+let scope = 9919;
+for(var i = 0; i< sqlElements.length; ++i) {
+    let query = sqlElements[i].querySelector('div').innerHTML.replace(/\bsel\b/ig, "SELECT").replace(/\bfrm\b/ig, "FROM").replace(/\bwhr\b/ig, "WHERE");
+    if(query.trim() != "")
+        sqlElements[i].innerHTML = `<insights-query exec-type="1" data-auth="${token}" scope="${scope}" data-api="${apiURL}" data-query="${query}"></insights-query>`;
+
+}*/
