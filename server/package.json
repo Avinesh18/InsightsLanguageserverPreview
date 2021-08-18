@@ -1,0 +1,24 @@
+{
+	"name": "insights-language-server-server",
+	"description": "LSP part of the Insights Language Server",
+	"version": "1.0.0",
+	"publisher": "Insights",
+	"license": "Apache-2.0",
+	"engines": {
+		"vscode": "^1.33.0"
+	},
+	"dependencies": {
+		"@kusto/language-service": "0.0.23-alpha",
+		"monaco-editor-core": "^0.17.0",
+		"vscode-languageserver": "^4.4.2",
+		"azure-kusto-data": "^0.2.5",
+		"dotnet": "^1.1.4",
+		"vscode-languageclient": "^4.1.4"
+	},
+	"scripts": {},
+	"devDependencies": {
+		"eslint": "^5.16.0",
+		"eslint-config-airbnb-base": "^13.2.0",
+		"eslint-plugin-import": "^2.18.2"
+	}
+}

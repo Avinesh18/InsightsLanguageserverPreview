@@ -1,0 +1,112 @@
+{
+	"cluster": {
+	  "name": "Cluster1",
+	  "databases": [
+		{
+		  "name": "Insights",
+		  "tables": [
+			{
+			  "name": "pull_requests",
+			  "columns": [
+				{
+				  "name": "Author",
+				  "type": "string",
+				  "identity": true
+				},
+				{
+				  "name": "CreatedDate",
+				  "type": "datetime",
+				  "identity": false
+				},
+				{
+				  "name": "TimeToOpenInHours",
+				  "type": "datetime",
+				  "identity": false
+				}
+			  ]
+			},
+			{
+			  "name": "Repository",
+			  "columns": [
+				{
+				  "name": "AccountId",
+				  "type": "long",
+				  "identity": false
+				},
+				{
+				  "name": "RepositoryId",
+				  "type": "long",
+				  "identity": false
+				},
+				{
+				  "name": "Name",
+				  "type": "string",
+				  "identity": false
+				},
+				{
+				  "name": "Description",
+				  "type": "string",
+				  "identity": false
+				},
+				{
+				  "name": "IsPublic",
+				  "type": "bool",
+				  "identity": false
+				},
+				{
+				  "name": "IsArchived",
+				  "type": "bool",
+				  "identity": false
+				},
+				{
+				  "name": "IsForked",
+				  "type": "bool",
+				  "identity": false
+				},
+				{
+				  "name": "CreationDate",
+				  "type": "datetimeoffset",
+				  "identity": false
+				},
+				{
+				  "name": "LastUpdated",
+				  "type": "datetimeoffset",
+				  "identity": false
+				},
+				{
+				  "name": "LastPushDate",
+				  "type": "datetimeoffset",
+				  "identity": false
+				},
+				{
+				  "name": "PrimaryLanguageNameId",
+				  "type": "long",
+				  "identity": false
+				},
+				{
+				  "name": "Url",
+				  "type": "string",
+				  "identity": false
+				},
+				{
+				  "name": "ImportStatus",
+				  "type": "int",
+				  "identity": false
+				},
+				{
+				  "name": "ImportFailedReason",
+				  "type": "string",
+				  "identity": false
+				},
+				{
+				  "name": "LastGoodImportStatus",
+				  "type": "int",
+				  "identity": false
+				}
+			  ]
+			}
+		  ]
+		}
+	  ]
+	}
+  }
